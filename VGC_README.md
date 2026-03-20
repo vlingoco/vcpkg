@@ -35,7 +35,7 @@ cd C:/vcpkg
 
 ### 3. Rename `master` to `main`
 
-GitHub's UI rename can silently fail on forks, so do it via git:
+GitHub's UI rename can silently fail on forks with no error message. Do it via git instead:
 ```
 git checkout master
 git checkout -b main
@@ -48,7 +48,15 @@ git branch -d master
 git remote set-head origin -a
 ```
 
-### 4. Add Microsoft's Repo as Upstream
+### 4. Fix git push default behaviour
+
+By default git refuses to push when the local and remote branch names don't match.
+Set this globally so `git push` always works without extra flags:
+```
+git config --global push.default current
+```
+
+### 5. Add Microsoft's Repo as Upstream
 ```
 git remote add upstream https://github.com/microsoft/vcpkg
 git fetch upstream --tags
@@ -59,7 +67,7 @@ origin    https://github.com/vlingoco/vcpkg    ← our fork
 upstream  https://github.com/microsoft/vcpkg   ← Microsoft's source
 ```
 
-### 5. Pin to a Stable Release Tag
+### 6. Pin to a Stable Release Tag
 
 vcpkg uses date-based release tags (e.g. `2026.03.18`). List available tags:
 ```
@@ -71,12 +79,80 @@ git reset --hard 2026.03.18
 git push origin main --force
 ```
 
-### 6. Bootstrap the vcpkg Tool
+> **Note:** `git push` without flags will be rejected here because the local branch
+> is behind the remote after a hard reset. `--force` is intentional and correct in
+> this one-time setup step.
+
+### 7. Bootstrap the vcpkg Tool
 ```
 bootstrap-vcpkg.bat    # Windows
 ./bootstrap-vcpkg.sh   # Linux / Mac
 ```
 This compiles the vcpkg binary from source. Must be re-run after pulling upstream updates.
+
+---
+
+## VGC Triplet Policy
+
+vcpkg triplets define the target platform and linking model. VGC projects use the
+following standard triplets:
+
+| Platform | Triplet | Linking |
+|----------|---------|---------|
+| Windows | `x64-windows-static` | Static — no runtime DLL dependencies |
+| Linux / WSL | `x64-linux` | Dynamic — container provides the runtime environment |
+
+Static linking is preferred on Windows because it eliminates DLL availability
+issues when deploying to different machines. On Linux and in Docker containers,
+dynamic linking is the convention and is safe because the container runtime is
+controlled.
+
+### Installing Packages with the VGC Triplets
+
+**Windows:**
+```
+vcpkg install protobuf:x64-windows-static
+```
+
+**Linux / WSL:**
+```
+vcpkg install protobuf:x64-linux
+```
+
+### Setting a Default Triplet
+
+To avoid specifying the triplet on every install command, set it as an
+environment variable:
+
+**Windows:**
+```
+VCPKG_DEFAULT_TRIPLET=x64-windows-static
+```
+
+**Linux / WSL:**
+```
+export VCPKG_DEFAULT_TRIPLET=x64-linux
+```
+
+Once set, `vcpkg install protobuf` will automatically use the correct triplet
+for the current platform.
+
+### Bootstrapping
+
+Bootstrap must be run once per machine after cloning, and again after any
+upstream update:
+
+**Windows:**
+```
+cd C:/vcpkg
+bootstrap-vcpkg.bat
+```
+
+**Linux / WSL:**
+```
+cd ~/vcpkg
+./bootstrap-vcpkg.sh
+```
 
 ---
 
